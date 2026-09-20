@@ -497,28 +497,14 @@ export const SortingCanvasSimulator: React.FC<SortingCanvasSimulatorProps> = ({
         }
       }
 
-      // 4. Status Badge
+      // 4. Status Badge (Text Only)
       const statusY = height - 125;
       if (isSorted) {
-        drawRoundRect(ctx, width / 2 - 75, statusY, 150, 26, 13);
-        ctx.fillStyle = "rgba(52, 211, 153, 0.15)";
-        ctx.fill();
-        ctx.strokeStyle = "rgba(52, 211, 153, 0.4)";
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
         ctx.fillStyle = "#34d399";
         ctx.font = "bold 12px monospace";
         ctx.textAlign = "center";
         ctx.fillText("Array Fully Sorted", width / 2, statusY + 17);
       } else if (isSwapping) {
-        drawRoundRect(ctx, width / 2 - 90, statusY, 180, 26, 13);
-        ctx.fillStyle = "rgba(244, 63, 94, 0.15)";
-        ctx.fill();
-        ctx.strokeStyle = "rgba(244, 63, 94, 0.4)";
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
         ctx.fillStyle = "#f43f5e";
         ctx.font = "bold 12px monospace";
         ctx.textAlign = "center";

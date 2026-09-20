@@ -465,28 +465,14 @@ export const SearchingCanvasSimulator: React.FC<SearchingCanvasSimulatorProps> =
         }
       }
 
-      // 4. Status Badge
+      // 4. Status Badge (Text Only)
       const statusY = cardsY + cardHeight + 54;
       if (isFound) {
-        drawRoundRect(ctx, width / 2 - 60, statusY, 120, 26, 13);
-        ctx.fillStyle = "rgba(52, 211, 153, 0.15)";
-        ctx.fill();
-        ctx.strokeStyle = "rgba(52, 211, 153, 0.4)";
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
         ctx.fillStyle = "#34d399";
         ctx.font = "bold 12px monospace";
         ctx.textAlign = "center";
         ctx.fillText("Target Found", width / 2, statusY + 17);
       } else if (isNotFound) {
-        drawRoundRect(ctx, width / 2 - 75, statusY, 150, 26, 13);
-        ctx.fillStyle = "rgba(244, 63, 94, 0.15)";
-        ctx.fill();
-        ctx.strokeStyle = "rgba(244, 63, 94, 0.4)";
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
         ctx.fillStyle = "#f43f5e";
         ctx.font = "bold 12px monospace";
         ctx.textAlign = "center";

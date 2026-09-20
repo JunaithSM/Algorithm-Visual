@@ -55,8 +55,8 @@ export const VisualizerPanel: React.FC<VisualizerPanelProps> = ({
   const [steps, setSteps] = useState<Step[]>([]);
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [speed, setSpeed] = useState<number>(1000); // step delay interval in ms
-  const [animSpeed, setAnimSpeed] = useState<number>(0.5); // canvas animation rate multiplier
+  const [speed, setSpeed] = useState<number>(2000); // step delay interval in ms (default: 2s)
+  const [animSpeed, setAnimSpeed] = useState<number>(1); // canvas animation rate multiplier
   const [volume, setVolume] = useState<number>(0.5); // audio volume multiplier 0.0 - 1.0
   const [isLineByLine, setIsLineByLine] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
@@ -214,7 +214,7 @@ export const VisualizerPanel: React.FC<VisualizerPanelProps> = ({
   };
 
   const handleResetSettings = () => {
-    setSpeed(1000);
+    setSpeed(2000);
     setAnimSpeed(0.5);
     setVolume(0.5);
     soundFx.volume = 0.5;

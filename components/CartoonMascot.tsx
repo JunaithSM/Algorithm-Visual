@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { soundFx } from "@/lib/visualizer/soundEffects";
 
-export type MascotState = "idle" | "laughing" | "talking" | "talking2";
+export type MascotState = "idle" | "laughing" | "talking";
 
 export interface FrameOverride {
   x?: number;
@@ -52,9 +52,9 @@ export const MASCOT_CONFIG = {
   ],
 
   /** Dynamic talking duration config (calculated based on string length) */
-  talkMsPerChar: 20, // Milliseconds of talking per character in string
-  minTalkDurationMs: 1200, // Minimum talk duration in ms (allows at least 1.2s of cute chatter)
-  maxTalkDurationMs: 3500, // Maximum talk duration in ms
+  talkMsPerChar: 6, // Milliseconds of talking per character in string
+  minTalkDurationMs: 800, // Minimum talk duration in ms (allows at least 1.2s of cute chatter)
+  maxTalkDurationMs: 1500, // Maximum talk duration in ms
 
   /**
    * SPRITE STATES CONFIGURATION
@@ -62,44 +62,34 @@ export const MASCOT_CONFIG = {
    */
   states: {
     idle: {
-      src: "/spritesheet/idle.png",
-      rows: 2,
-      cols: 5,
-      frameWidth: 396.6,
-      frameHeight: 396.5,
+      src: "/spritesheet/idlespritesheet.png",
+      rows: 1,
+      cols: 10,
+      frameWidth: 100,
+      frameHeight: 100,
       offsetX: 0,
       offsetY: 0,
       fps: 8,
     },
     talking: {
-      src: "/spritesheet/talking.png",
-      rows: 2,
-      cols: 5,
-      frameWidth: 434.4,
-      frameHeight: 362,
+      src: "/spritesheet/talkingspritesheet.png",
+      rows: 1,
+      cols: 19,
+      frameWidth: 100,
+      frameHeight: 100,
       offsetX: 0,
       offsetY: 0,
-      fps: 10,
-    },
-    talking2: {
-      src: "/spritesheet/talking2.png",
-      rows: 2,
-      cols: 5,
-      frameWidth: 434.4,
-      frameHeight: 362,
-      offsetX: 0,
-      offsetY: 0,
-      fps: 10,
+      fps: 8 ,
     },
     laughing: {
-      src: "/spritesheet/laughing.png",
-      rows: 2,
-      cols: 5,
-      frameWidth: 434.4,
-      frameHeight: 362,
+      src: "/spritesheet/laughingspritesheet.png",
+      rows: 1,
+      cols: 11,
+      frameWidth: 100,
+      frameHeight: 100,
       offsetX: 0,
       offsetY: 0,
-      fps: 12,
+      fps: 8,
     },
   } as Record<MascotState, SpriteStateConfig>,
 };
@@ -166,28 +156,55 @@ export const CartoonMascot: React.FC<CartoonMascotProps> = ({
   const lastFrameTimeRef = useRef<number>(0);
   const currentFrameIndexRef = useRef<number>(0);
   const talkTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const onWelcomeCompleteRef = useRef(onWelcomeComplete);
 
-  // Hydration Safe: Check sessionStorage only after client component mounts
+  // Keep the ref in sync with the latest prop (avoids stale closure)
+  useEffect(() => {
+    onWelcomeCompleteRef.current = onWelcomeComplete;
+  }, [onWelcomeComplete]);
+
+  // Hydration Safe: Check sessionStorage only after client component mounts (runs ONCE)
   useEffect(() => {
     setIsMounted(true);
     try {
       if (sessionStorage.getItem(SESSION_WELCOMED_KEY) === "true") {
         setIsWelcoming(false);
         setCurrentState("idle");
-        onWelcomeComplete?.();
+        onWelcomeCompleteRef.current?.();
       }
     } catch {}
-  }, [onWelcomeComplete]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Preload all sprite sheet images
+  const [imagesLoaded, setImagesLoaded] = useState<boolean>(false);
+
+  // Preload all sprite sheet images with robust onload handlers
   useEffect(() => {
-    Object.entries(MASCOT_CONFIG.states).forEach(([key, stateCfg]) => {
-      if (!loadedImagesRef.current[stateCfg.src]) {
-        const img = new Image();
+    let loadedCount = 0;
+    const entries = Object.entries(MASCOT_CONFIG.states);
+
+    entries.forEach(([key, stateCfg]) => {
+      let img = loadedImagesRef.current[stateCfg.src];
+      if (!img) {
+        img = new Image();
+        img.onload = () => {
+          setImagesLoaded((prev) => !prev);
+        };
         img.src = stateCfg.src;
         loadedImagesRef.current[stateCfg.src] = img;
       }
+      if (img.complete) {
+        loadedCount++;
+      } else {
+        img.onload = () => {
+          setImagesLoaded((prev) => !prev);
+        };
+      }
     });
+
+    if (loadedCount >= entries.length) {
+      setImagesLoaded(true);
+    }
   }, []);
 
   // Update target anchor coordinates (Top Left of Simulator Panel near Step Description)
@@ -246,10 +263,13 @@ export const CartoonMascot: React.FC<CartoonMascotProps> = ({
 
   // Initial Welcome Sequence: Interactive click sequence per welcome message
   useEffect(() => {
-    if (!isWelcoming) return;
+    if (!isWelcoming || !isAnchorVisible) return;
 
     const messages = MASCOT_CONFIG.welcomeMessages;
     const isLastSlide = welcomeStep === messages.length - 1;
+
+    currentFrameIndexRef.current = 0;
+    lastFrameTimeRef.current = 0;
 
     if (isLastSlide) {
       setCurrentState("laughing");
@@ -279,7 +299,7 @@ export const CartoonMascot: React.FC<CartoonMascotProps> = ({
         clearTimeout(talkTimer);
       };
     }
-  }, [welcomeStep, isWelcoming, algorithmTitle]);
+  }, [welcomeStep, isWelcoming, isAnchorVisible, algorithmTitle]);
 
   useEffect(() => {
     if (!isWelcoming) return;
@@ -313,19 +333,33 @@ export const CartoonMascot: React.FC<CartoonMascotProps> = ({
 
   // React to Step Text / Step Trigger changes (Play, Next, Prev, Step change)
   useEffect(() => {
-    if (isWelcoming) return;
+    if (isWelcoming || !isAnchorVisible) return;
 
-    if (talkTimerRef.current) {
-      clearTimeout(talkTimerRef.current);
+    // Cancel any previously scheduled idle transition from a prior invocation.
+    // We MUST snapshot the old timer id before overwriting talkTimerRef.current,
+    // otherwise the cleanup closure would cancel the *new* timer we're about to create.
+    const prevTimer = talkTimerRef.current;
+    if (prevTimer) {
+      clearTimeout(prevTimer);
+      talkTimerRef.current = null;
     }
+
+    currentFrameIndexRef.current = 0;
+    lastFrameTimeRef.current = 0;
 
     if (stepStatus === "found" || stepStatus === "sorted") {
       setCurrentState("laughing");
       soundFx.playMascotLaugh();
-      talkTimerRef.current = setTimeout(() => {
+      const laughTimer = setTimeout(() => {
         setCurrentState("idle");
+        talkTimerRef.current = null;
       }, 1600);
-      return;
+      talkTimerRef.current = laughTimer;
+      // Return cleanup so if deps change before 1600ms the laugh timer is cancelled
+      return () => {
+        clearTimeout(laughTimer);
+        talkTimerRef.current = null;
+      };
     }
 
     const textToMeasure = stepText || (typeof stepTrigger === "string" ? stepTrigger : "");
@@ -339,16 +373,22 @@ export const CartoonMascot: React.FC<CartoonMascotProps> = ({
       soundFx.playMascotTalkBeep();
     }, 130);
 
-    talkTimerRef.current = setTimeout(() => {
+    // Store the idle timer so it can be cancelled by the *next* effect invocation.
+    // Use a local variable so the cleanup closure below can cancel it without touching
+    // talkTimerRef.current (which may have been overwritten by then).
+    const idleTimer = setTimeout(() => {
       clearInterval(beepInterval);
       setCurrentState("idle");
+      talkTimerRef.current = null;
     }, talkDuration);
+    talkTimerRef.current = idleTimer;
 
     return () => {
       clearInterval(beepInterval);
-      if (talkTimerRef.current) clearTimeout(talkTimerRef.current);
+      clearTimeout(idleTimer);
+      talkTimerRef.current = null;
     };
-  }, [stepTrigger, stepText, stepStatus, isWelcoming]);
+  }, [stepTrigger, stepText, stepStatus, isWelcoming, isAnchorVisible]);
 
   // Main 60fps Canvas Render Loop
   useEffect(() => {
@@ -357,17 +397,24 @@ export const CartoonMascot: React.FC<CartoonMascotProps> = ({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const stateCfg = MASCOT_CONFIG.states[currentState];
-    const currentSrc = stateCfg.src;
-    const targetFps = fps || stateCfg.fps || 10;
-    const frameInterval = 1000 / targetFps;
+    currentFrameIndexRef.current = 0;
+    lastFrameTimeRef.current = 0;
+
+    let animationFrameId: number;
 
     const render = (time: number) => {
-      if (!lastFrameTimeRef.current) lastFrameTimeRef.current = time;
-      const delta = time - lastFrameTimeRef.current;
+      const stateCfg = MASCOT_CONFIG.states[currentState] || MASCOT_CONFIG.states.idle;
+      const currentSrc = stateCfg.src;
+      const targetFps = fps || stateCfg.fps || 10;
+      const frameInterval = 1000 / targetFps;
 
-      const cols = stateCfg.cols || 5;
-      const rows = stateCfg.rows || 2;
+      if (!lastFrameTimeRef.current) {
+        lastFrameTimeRef.current = time;
+      }
+
+      const delta = time - lastFrameTimeRef.current;
+      const cols = stateCfg.cols || 1;
+      const rows = stateCfg.rows || 1;
       const totalFrames = rows * cols;
 
       if (delta >= frameInterval) {
@@ -383,7 +430,7 @@ export const CartoonMascot: React.FC<CartoonMascotProps> = ({
         const baseW = stateCfg.frameWidth || autoFrameWidth;
         const baseH = stateCfg.frameHeight || autoFrameHeight;
 
-        const frameIndex = currentFrameIndexRef.current;
+        const frameIndex = currentFrameIndexRef.current % totalFrames;
         const col = frameIndex % cols;
         const row = Math.floor(frameIndex / cols);
 
@@ -419,17 +466,17 @@ export const CartoonMascot: React.FC<CartoonMascotProps> = ({
         ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
       }
 
-      animationFrameRef.current = requestAnimationFrame(render);
+      animationFrameId = requestAnimationFrame(render);
     };
 
-    animationFrameRef.current = requestAnimationFrame(render);
+    animationFrameId = requestAnimationFrame(render);
 
     return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
       }
     };
-  }, [currentState, fps]);
+  }, [currentState, fps, imagesLoaded]);
 
   // Calculate current viewport coordinates for single moving mascot component (Hydration Safe)
   let currentX = 0;
