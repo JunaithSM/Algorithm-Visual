@@ -68,6 +68,7 @@ export const VisualizerPanel: React.FC<VisualizerPanelProps> = ({
   const prevStepRef = useRef<number>(-1);
   const settingsRef = useRef<HTMLDivElement>(null);
   const settingsBtnRef = useRef<HTMLButtonElement>(null);
+  const mascotAnchorRef = useRef<HTMLDivElement>(null);
 
   // Close settings popover menu when clicking outside
   useEffect(() => {
@@ -238,13 +239,13 @@ export const VisualizerPanel: React.FC<VisualizerPanelProps> = ({
             : "border-neutral-200 bg-neutral-50 text-neutral-800"
         }`}
       >
-        {/* Left: Algorithm Title */}
-        <div className="flex items-center gap-2 font-semibold">
+        {/* Left: Algorithm Title (Desktop Only) */}
+        <div className="hidden lg:flex items-center gap-2 font-semibold">
           <span>{displayTitle}</span>
         </div>
 
-        {/* Center: Function Instance Dropdown & Line Number */}
-        <div className="flex items-center justify-center gap-2 font-sans">
+        {/* Center/Left: Function Instance Dropdown & Line Number (Left on Mobile, Center on Desktop) */}
+        <div className="flex items-center justify-start lg:justify-center gap-2 font-sans col-span-2 lg:col-span-1 min-w-0 overflow-hidden">
           {instances.length > 0 && (
             <>
               <select
@@ -273,7 +274,7 @@ export const VisualizerPanel: React.FC<VisualizerPanelProps> = ({
               </select>
 
               {activeInstance?.lineNumber && (
-                <span className="text-[11px] font-sans font-medium text-sky-400 bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 rounded-md whitespace-nowrap">
+                <span className={`text-[11px] font-sans font-medium whitespace-nowrap ${isDarkMode ? "text-white" : "text-neutral-900"}`}>
                   Line {activeInstance.lineNumber}
                 </span>
               )}
@@ -315,11 +316,11 @@ export const VisualizerPanel: React.FC<VisualizerPanelProps> = ({
                 : "border-neutral-200 bg-neutral-100/60 text-neutral-800"
             }`}
           >
-            {/* Left Anchor for Cartoon Mascot Guide */}
-            <div id="mascot-anchor" className="w-11 h-11 shrink-0 flex items-center justify-center" />
+            {/* Left Anchor for Cartoon Mascot Guide (Top Left of Simulator Panel near Step Description) */}
+            <div ref={mascotAnchorRef} className="w-11 h-11 shrink-0 flex items-center justify-center" />
 
             <CartoonMascot
-              targetAnchorId="mascot-anchor"
+              anchorRef={mascotAnchorRef}
               algorithmTitle={displayTitle}
               stepTrigger={isWelcomeComplete ? currentStepIndex : "welcome"}
               stepText={isWelcomeComplete ? descText : ""}
@@ -327,21 +328,21 @@ export const VisualizerPanel: React.FC<VisualizerPanelProps> = ({
               onWelcomeComplete={() => setIsWelcomeComplete(true)}
             />
 
-            <span className="text-[11px] font-semibold text-sky-400 bg-sky-500/10 border border-sky-500/20 px-2.5 py-0.5 rounded-md whitespace-nowrap shrink-0">
+            <span className={`text-[11px] font-semibold whitespace-nowrap shrink-0 ${isDarkMode ? "text-white" : "text-neutral-900"}`}>
               {steps.length > 0 ? `Step ${currentStepIndex + 1} of ${steps.length}` : "Step 0"}
             </span>
 
-            {/* Step Description Text Reveal: Only animates after initial welcome sequence completes */}
+            {/* Step Description Text Reveal: Multi-line word-wrapped display */}
             {isWelcomeComplete && (
               <div
                 key={`${currentStepIndex}-${descText}`}
                 title={descText}
-                className={`truncate text-xs font-sans font-normal leading-normal flex items-center overflow-hidden min-w-0 ${
+                className={`text-xs font-sans font-normal leading-relaxed flex flex-wrap items-center min-w-0 flex-1 break-words ${
                   isDarkMode ? "text-neutral-300" : "text-neutral-700"
                 }`}
               >
                 {words.map((word, wIdx) => (
-                  <span key={wIdx} className="inline-block whitespace-nowrap mr-1 overflow-hidden align-bottom">
+                  <span key={wIdx} className="inline-flex whitespace-nowrap mr-1 align-baseline">
                     {word.split("").map((char) => {
                       const delay = Math.min(globalCharIdx * 10, 350);
                       globalCharIdx++;

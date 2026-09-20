@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { soundFx } from "@/lib/visualizer/soundEffects";
 
 export type MascotState = "idle" | "laughing" | "talking" | "talking2";
@@ -51,9 +52,9 @@ export const MASCOT_CONFIG = {
   ],
 
   /** Dynamic talking duration config (calculated based on string length) */
-  talkMsPerChar: 25, // Milliseconds of talking per character in string
-  minTalkDurationMs: 200, // Minimum talk duration in ms
-  maxTalkDurationMs: 2500, // Maximum talk duration in ms
+  talkMsPerChar: 20, // Milliseconds of talking per character in string
+  minTalkDurationMs: 1200, // Minimum talk duration in ms (allows at least 1.2s of cute chatter)
+  maxTalkDurationMs: 3500, // Maximum talk duration in ms
 
   /**
    * SPRITE STATES CONFIGURATION
@@ -118,6 +119,8 @@ export const getTalkDurationMs = (text: string): number => {
 export interface CartoonMascotProps {
   /** Target HTML anchor ID to dock next to (default: "mascot-anchor") */
   targetAnchorId?: string;
+  /** Direct ref to the anchor element (preferred over targetAnchorId to avoid duplicate ID issues) */
+  anchorRef?: React.RefObject<HTMLDivElement | null>;
   /** Active step index or description text to trigger talking animation on change */
   stepTrigger?: any;
   /** Step description text string to calculate character reveal length */
@@ -138,6 +141,7 @@ const SESSION_WELCOMED_KEY = "mascot_welcome_shown";
 
 export const CartoonMascot: React.FC<CartoonMascotProps> = ({
   targetAnchorId = "mascot-anchor",
+  anchorRef,
   stepTrigger,
   stepText = "",
   stepStatus,
@@ -153,6 +157,7 @@ export const CartoonMascot: React.FC<CartoonMascotProps> = ({
   const [currentState, setCurrentState] = useState<MascotState>("talking");
   const [welcomeStep, setWelcomeStep] = useState<number>(0);
   const welcomeStepRef = useRef<number>(0);
+  const [isAnchorVisible, setIsAnchorVisible] = useState<boolean>(true);
   const [anchorPos, setAnchorPos] = useState<{ x: number; y: number } | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -185,20 +190,46 @@ export const CartoonMascot: React.FC<CartoonMascotProps> = ({
     });
   }, []);
 
-  // Update target anchor coordinates (Left of Step Description Bar)
+  // Update target anchor coordinates (Top Left of Simulator Panel near Step Description)
   useEffect(() => {
+    let rafId: number;
+
     const updatePosition = () => {
-      const anchorEl = document.getElementById(targetAnchorId);
+      // Prefer ref (avoids duplicate ID issue with mobile + desktop VisualizerPanels)
+      const anchorEl = anchorRef?.current ?? document.getElementById(targetAnchorId);
       if (anchorEl) {
+        // Check if anchor element is visible in layout DOM (not hidden via CSS display: none)
+        const rects = anchorEl.getClientRects();
+        const hasSize = anchorEl.offsetWidth > 0 || anchorEl.offsetHeight > 0;
+        if (rects.length === 0 && !hasSize) {
+          setIsAnchorVisible(false);
+          return;
+        }
+
         const rect = anchorEl.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) {
+          setIsAnchorVisible(false);
+          return;
+        }
+
+        setIsAnchorVisible(true);
+
+        // Center the mascot sprite over the anchor element's center point
+        const anchorCenterX = rect.left + rect.width / 2;
+        const anchorCenterY = rect.top + rect.height / 2;
         setAnchorPos({
-          x: rect.left,
-          y: rect.top,
+          x: anchorCenterX - displaySize / 2,
+          y: anchorCenterY - displaySize / 2,
         });
+      } else {
+        setIsAnchorVisible(false);
       }
     };
 
     updatePosition();
+    // Run again next frame to capture post-mount layout shifts
+    rafId = requestAnimationFrame(updatePosition);
+
     window.addEventListener("resize", updatePosition);
     window.addEventListener("scroll", updatePosition);
 
@@ -206,18 +237,14 @@ export const CartoonMascot: React.FC<CartoonMascotProps> = ({
     observer.observe(document.body, { childList: true, subtree: true });
 
     return () => {
+      cancelAnimationFrame(rafId);
       window.removeEventListener("resize", updatePosition);
       window.removeEventListener("scroll", updatePosition);
       observer.disconnect();
     };
-  }, [targetAnchorId]);
+  }, [targetAnchorId, anchorRef, displaySize]);
 
   // Initial Welcome Sequence: Interactive click sequence per welcome message
-  // Slide 0: "Hi! Welcome to Algorithm Visualizer!" (talking based on text length -> idle)
-  // Slide 1: "Let's learn about {algorithm}" (talking based on text length -> idle)
-  // Slide 2: "Are you ready?" (talking based on text length -> idle)
-  // Slide 3: "Let's go!" (laughing state & giggle sound effect)
-  // Slide 4: (Click) -> Glides to anchor on left of Step Description -> Become Idle
   useEffect(() => {
     if (!isWelcoming) return;
 
@@ -226,6 +253,7 @@ export const CartoonMascot: React.FC<CartoonMascotProps> = ({
 
     if (isLastSlide) {
       setCurrentState("laughing");
+      soundFx.playMascotLaugh();
     } else {
       const rawMsg = messages[welcomeStep] || "";
       const formattedMsg = rawMsg.replace(
@@ -235,11 +263,21 @@ export const CartoonMascot: React.FC<CartoonMascotProps> = ({
       const talkDuration = getTalkDurationMs(formattedMsg);
 
       setCurrentState("talking");
+      soundFx.playMascotTalkBeep();
+
+      const beepInterval = setInterval(() => {
+        soundFx.playMascotTalkBeep();
+      }, 130);
+
       const talkTimer = setTimeout(() => {
+        clearInterval(beepInterval);
         setCurrentState("idle");
       }, talkDuration);
 
-      return () => clearTimeout(talkTimer);
+      return () => {
+        clearInterval(beepInterval);
+        clearTimeout(talkTimer);
+      };
     }
   }, [welcomeStep, isWelcoming, algorithmTitle]);
 
@@ -283,44 +321,34 @@ export const CartoonMascot: React.FC<CartoonMascotProps> = ({
 
     if (stepStatus === "found" || stepStatus === "sorted") {
       setCurrentState("laughing");
+      soundFx.playMascotLaugh();
       talkTimerRef.current = setTimeout(() => {
         setCurrentState("idle");
       }, 1600);
-    } else {
-      const textToMeasure = stepText || (typeof stepTrigger === "string" ? stepTrigger : "");
-      const talkDuration = getTalkDurationMs(textToMeasure);
-
-      // Switch to talking state for dynamic talk duration based on text length
-      setCurrentState("talking");
-
-      talkTimerRef.current = setTimeout(() => {
-        setCurrentState("idle");
-      }, talkDuration);
-    }
-
-    return () => {
-      if (talkTimerRef.current) clearTimeout(talkTimerRef.current);
-    };
-  }, [stepTrigger, stepText, stepStatus, isWelcoming]);
-
-  // Audio Effect Trigger when Mascot is in laughing or talking state
-  useEffect(() => {
-    if (currentState === "laughing") {
-      soundFx.playMascotLaugh();
       return;
     }
 
-    if (currentState !== "talking" && currentState !== "talking2") return;
+    const textToMeasure = stepText || (typeof stepTrigger === "string" ? stepTrigger : "");
+    const talkDuration = getTalkDurationMs(textToMeasure);
 
-    // Play initial cute beep
+    // Switch to talking state for dynamic talk duration based on text length
+    setCurrentState("talking");
     soundFx.playMascotTalkBeep();
 
     const beepInterval = setInterval(() => {
       soundFx.playMascotTalkBeep();
     }, 130);
 
-    return () => clearInterval(beepInterval);
-  }, [currentState]);
+    talkTimerRef.current = setTimeout(() => {
+      clearInterval(beepInterval);
+      setCurrentState("idle");
+    }, talkDuration);
+
+    return () => {
+      clearInterval(beepInterval);
+      if (talkTimerRef.current) clearTimeout(talkTimerRef.current);
+    };
+  }, [stepTrigger, stepText, stepStatus, isWelcoming]);
 
   // Main 60fps Canvas Render Loop
   useEffect(() => {
@@ -417,7 +445,9 @@ export const CartoonMascot: React.FC<CartoonMascotProps> = ({
     currentY = anchorPos.y;
   }
 
-  return (
+  // Use React Portal to render at document.body level, escaping any parent
+  // CSS transforms (e.g. animate-in) that break position: fixed containment.
+  const mascotJsx = (
     <div
       style={{
         transform: `translate3d(${currentX}px, ${currentY}px, 0)`,
@@ -490,4 +520,8 @@ export const CartoonMascot: React.FC<CartoonMascotProps> = ({
       />
     </div>
   );
+
+  // Portal to document.body so fixed positioning is relative to viewport
+  if (!isMounted || !isAnchorVisible) return null;
+  return createPortal(mascotJsx, document.body);
 };

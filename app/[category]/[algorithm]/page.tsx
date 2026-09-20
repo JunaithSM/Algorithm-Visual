@@ -15,6 +15,7 @@ import {
 import { VisualizerPanel } from "@/components/VisualizerPanel";
 import { DescriptionPanel } from "@/components/DescriptionPanel";
 import { Step } from "@/lib/visualizer/simulator";
+import { WorkspaceNavTabs } from "@/components/WorkspaceNavTabs";
 
 export default function AlgorithmPage({
   params,
@@ -128,12 +129,21 @@ export default function AlgorithmPage({
           </div>
         </div>
 
+        {/* Desktop Navigation Tabs in Header (Icon + Name with Animated Background Pill) */}
+        <div className="hidden lg:flex items-center">
+          <WorkspaceNavTabs
+            activeView={activeView}
+            onSelectView={(v) => setActiveView(v)}
+            isDarkMode={isDarkMode}
+            variant="header"
+          />
+        </div>
       </header>
 
       {/* Main Workspace Area Container (Smooth Fade Transition) */}
       <div
         key={activeView}
-        className="flex-1 p-2 overflow-hidden min-h-0 pb-20 animate-in fade-in-50 duration-300 ease-out"
+        className="flex-1 p-2 overflow-hidden min-h-0 pb-20 lg:pb-2 animate-in fade-in-50 duration-300 ease-out"
       >
         {activeView === "description" ? (
           <DescriptionPanel
@@ -251,95 +261,15 @@ export default function AlgorithmPage({
         )}
       </div>
 
-      {/* Floating Bottom Navigation Tab Bar (Strict Black & White - Smooth Transitions - Evenly Spaced) */}
-      <nav
-        aria-label="Workspace Navigation Tabs"
-        className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-xs sm:max-w-sm lg:max-w-md p-1.5 rounded-2xl border shadow-2xl backdrop-blur-md font-sans transition-all duration-300 ease-out grid grid-cols-3 lg:grid-cols-4 items-center gap-1.5 ${
-          isDarkMode
-            ? "border-neutral-800 bg-neutral-950/90 text-neutral-400 shadow-black/80"
-            : "border-neutral-200 bg-white/90 text-neutral-600 shadow-neutral-300/50"
-        }`}
-      >
-        {/* Tab 1: Split View (Desktop Only) */}
-        <button
-          onClick={() => setActiveView("split")}
-          title="Split View"
-          aria-label="Split View"
-          className={`hidden lg:flex items-center justify-center py-2.5 rounded-xl transition-all duration-200 ease-out cursor-pointer active:scale-90 ${
-            activeView === "split"
-              ? isDarkMode
-                ? "bg-white text-black font-bold shadow-md"
-                : "bg-black text-white font-bold shadow-md"
-              : isDarkMode
-              ? "hover:text-white hover:bg-neutral-800/70"
-              : "hover:text-black hover:bg-neutral-100"
-          }`}
-        >
-          <Columns2 className="w-5 h-5" />
-        </button>
-
-        {/* Tab 2: Visualizer */}
-        <button
-          onClick={() => setActiveView("visualizer")}
-          title="Visualizer"
-          aria-label="Visualizer"
-          className={`flex items-center justify-center py-2.5 rounded-xl transition-all duration-200 ease-out cursor-pointer active:scale-90 ${
-            activeView === "visualizer"
-              ? isDarkMode
-                ? "bg-white text-black font-bold shadow-md"
-                : "bg-black text-white font-bold shadow-md"
-              : isDarkMode
-              ? "hover:text-white hover:bg-neutral-800/70"
-              : "hover:text-black hover:bg-neutral-100"
-          }`}
-        >
-          <Play
-            className={`w-5 h-5 ${
-              activeView === "visualizer"
-                ? isDarkMode
-                  ? "fill-black"
-                  : "fill-white"
-                : ""
-            }`}
-          />
-        </button>
-
-        {/* Tab 3: Code */}
-        <button
-          onClick={() => setActiveView("code")}
-          title="Code Editor"
-          aria-label="Code Editor"
-          className={`flex items-center justify-center py-2.5 rounded-xl transition-all duration-200 ease-out cursor-pointer active:scale-90 ${
-            activeView === "code"
-              ? isDarkMode
-                ? "bg-white text-black font-bold shadow-md"
-                : "bg-black text-white font-bold shadow-md"
-              : isDarkMode
-              ? "hover:text-white hover:bg-neutral-800/70"
-              : "hover:text-black hover:bg-neutral-100"
-          }`}
-        >
-          <Code2 className="w-5 h-5" />
-        </button>
-
-        {/* Tab 4: Description */}
-        <button
-          onClick={() => setActiveView("description")}
-          title="Description"
-          aria-label="Description"
-          className={`flex items-center justify-center py-2.5 rounded-xl transition-all duration-200 ease-out cursor-pointer active:scale-90 ${
-            activeView === "description"
-              ? isDarkMode
-                ? "bg-white text-black font-bold shadow-md"
-                : "bg-black text-white font-bold shadow-md"
-              : isDarkMode
-              ? "hover:text-white hover:bg-neutral-800/70"
-              : "hover:text-black hover:bg-neutral-100"
-          }`}
-        >
-          <FileText className="w-5 h-5" />
-        </button>
-      </nav>
+      {/* Floating Bottom Navigation Tab Bar (Mobile Only - Animated Background Pill) */}
+      <div className="flex lg:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-xs sm:max-w-sm justify-center">
+        <WorkspaceNavTabs
+          activeView={activeView}
+          onSelectView={(v) => setActiveView(v)}
+          isDarkMode={isDarkMode}
+          variant="mobile"
+        />
+      </div>
 
       {/* Content Sidebar Overlay Backdrop */}
       {isSidebarOpen && (
