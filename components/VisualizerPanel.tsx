@@ -245,7 +245,7 @@ export const VisualizerPanel: React.FC<VisualizerPanelProps> = ({
         </div>
 
         {/* Center/Left: Function Instance Dropdown & Line Number (Left on Mobile, Center on Desktop) */}
-        <div className="flex items-center justify-start lg:justify-center gap-2 font-sans col-span-2 lg:col-span-1 min-w-0 overflow-hidden">
+        <div className="flex items-center justify-start lg:justify-center gap-2 font-sans col-span-2 lg:col-span-1 min-w-0">
           {instances.length > 0 && (
             <>
               <select
@@ -256,7 +256,7 @@ export const VisualizerPanel: React.FC<VisualizerPanelProps> = ({
                   setCurrentStepIndex(0);
                   prevStepRef.current = -1;
                 }}
-                className={`px-2.5 py-1 rounded-md text-xs font-sans border font-medium cursor-pointer focus:outline-none transition ${
+                className={`px-2.5 py-1 rounded-md text-xs font-sans border font-medium cursor-pointer focus:outline-none transition min-w-0 max-w-[70%] truncate ${
                   isDarkMode
                     ? "bg-neutral-900 border-neutral-800 text-neutral-200 hover:border-neutral-700"
                     : "bg-white border-neutral-300 text-neutral-800 hover:border-neutral-400"
