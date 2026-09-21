@@ -15,9 +15,19 @@ body {
 
 /* Active Executing Line Highlight in Monaco */
 .monaco-line-highlight-active {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border-left: 3px solid rgba(255, 255, 255, 0.5) !important;
-  box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.05);
+  background: rgba(56, 189, 248, 0.16) !important;
+  border-left: 3px solid rgba(56, 189, 248, 0.95) !important;
+  box-shadow: inset 0 0 15px rgba(56, 189, 248, 0.15);
+}
+
+.monaco-glyph-active {
+  background: #38bdf8;
+  border-radius: 50%;
+  width: 8px !important;
+  height: 8px !important;
+  margin-left: 5px;
+  margin-top: 5px;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.9);
 }
 
 /* Custom Sleek Scrollbar */

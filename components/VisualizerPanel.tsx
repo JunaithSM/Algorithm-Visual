@@ -170,6 +170,17 @@ export const VisualizerPanel: React.FC<VisualizerPanelProps> = ({
           const v1 = step.array[step.activeIndices[0]] || 5;
           const v2 = step.array[step.activeIndices[1]] || 10;
           soundFx.playSwap(v1, v2, maxVal);
+        } else if (step.status === "pivoting") {
+          const val = step.array[step.activeIndices[0]] || 5;
+          soundFx.playPivot(val, maxVal);
+        } else if (step.status === "merging") {
+          const val = step.array[step.activeIndices[0]] || 5;
+          soundFx.playMerge(val, maxVal);
+        } else if (step.status === "shifting") {
+          const val = step.array[step.activeIndices[0]] || 5;
+          soundFx.playShift(val, maxVal);
+        } else if (step.status === "counting" || step.status === "bucketing") {
+          soundFx.playCount();
         } else if (step.status === "comparing" && step.activeIndices.length > 0) {
           const val = step.array[step.activeIndices[0]] || 5;
           soundFx.playCompare(val, maxVal);

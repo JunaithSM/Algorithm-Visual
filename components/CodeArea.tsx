@@ -264,6 +264,7 @@ export const CodeArea: React.FC<CodeAreaProps> = ({
             options: {
               isWholeLine: true,
               className: "monaco-line-highlight-active",
+              glyphMarginClassName: "monaco-glyph-active",
             },
           },
         ]);
@@ -353,6 +354,7 @@ export const CodeArea: React.FC<CodeAreaProps> = ({
       fontSize,
       fontFamily: internalFontFamily,
       lineNumbers: computedLineNumbers,
+      glyphMargin: true,
       minimap: { enabled: minimap },
       wordWrap: computedWordWrap,
       tabSize,

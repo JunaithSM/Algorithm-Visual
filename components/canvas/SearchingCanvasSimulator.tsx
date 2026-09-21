@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect } from "react";
-import { Step } from "@/lib/visualizer/simulator";
+import { Step, SubArrayRange } from "@/lib/visualizer/simulator";
 
 interface SearchingCanvasSimulatorProps {
   steps: Step[];
@@ -28,6 +28,47 @@ const COLOR_MAP: Record<string, { fill: string; stroke: string; text: string }> 
 function getPointerColor(varName: string) {
   const key = varName.toLowerCase().trim();
   return COLOR_MAP[key] || { fill: "#db2777", stroke: "#f472b6", text: "#ffffff" };
+}
+
+function getSubArrayColors(colorName?: string, isDarkMode = true) {
+  switch (colorName) {
+    case "cyan":
+      return {
+        fill: isDarkMode ? "rgba(56, 189, 248, 0.12)" : "rgba(14, 165, 233, 0.10)",
+        stroke: isDarkMode ? "rgba(56, 189, 248, 0.55)" : "rgba(14, 165, 233, 0.45)",
+        text: isDarkMode ? "#38bdf8" : "#0284c7",
+      };
+    case "purple":
+      return {
+        fill: isDarkMode ? "rgba(192, 132, 252, 0.12)" : "rgba(168, 85, 247, 0.10)",
+        stroke: isDarkMode ? "rgba(192, 132, 252, 0.55)" : "rgba(168, 85, 247, 0.45)",
+        text: isDarkMode ? "#c084fc" : "#7e22ce",
+      };
+    case "amber":
+      return {
+        fill: isDarkMode ? "rgba(251, 191, 36, 0.14)" : "rgba(245, 158, 11, 0.12)",
+        stroke: isDarkMode ? "rgba(251, 191, 36, 0.6)" : "rgba(245, 158, 11, 0.5)",
+        text: isDarkMode ? "#fbbf24" : "#d97706",
+      };
+    case "emerald":
+      return {
+        fill: isDarkMode ? "rgba(52, 211, 153, 0.12)" : "rgba(16, 185, 129, 0.10)",
+        stroke: isDarkMode ? "rgba(52, 211, 153, 0.55)" : "rgba(16, 185, 129, 0.45)",
+        text: isDarkMode ? "#34d399" : "#059669",
+      };
+    case "rose":
+      return {
+        fill: isDarkMode ? "rgba(251, 113, 133, 0.12)" : "rgba(244, 63, 94, 0.10)",
+        stroke: isDarkMode ? "rgba(251, 113, 133, 0.55)" : "rgba(244, 63, 94, 0.45)",
+        text: isDarkMode ? "#fb7185" : "#e11d48",
+      };
+    default: // blue
+      return {
+        fill: isDarkMode ? "rgba(99, 102, 241, 0.12)" : "rgba(79, 70, 229, 0.08)",
+        stroke: isDarkMode ? "rgba(129, 140, 248, 0.45)" : "rgba(79, 70, 229, 0.35)",
+        text: isDarkMode ? "#818cf8" : "#4338ca",
+      };
+  }
 }
 
 function drawRoundRect(
@@ -183,10 +224,21 @@ function drawTargetComparisonBridge(
   ctx.restore();
 }
 
-function isCleanPointerName(key: string): boolean {
+function isCleanPointerName(key: string, algorithmId?: string): boolean {
   const k = key.trim().toLowerCase();
   if (k.includes("[") || k.includes("]") || k.includes("(")) return false;
   if (k.startsWith("arr") || k.startsWith("num") || k.startsWith("element") || k.startsWith("val")) return false;
+
+  // Exclude range boundaries, array bounds, and metadata variables from floating card index pointers
+  const excluded = [
+    "left", "right", "low", "high", "start", "end",
+    "boundlow", "boundhigh", "bound_low", "bound_high",
+    "blockend", "block_end", "step", "n", "gap",
+    "target", "key", "max", "exp", "numssize", "arraylength",
+    "n1", "n2", "leftpart", "rightpart"
+  ];
+  if (excluded.includes(k)) return false;
+
   return true;
 }
 
@@ -202,6 +254,13 @@ export const SearchingCanvasSimulator: React.FC<SearchingCanvasSimulatorProps> =
   const animationFrameRef = useRef<number | null>(null);
   const dashOffsetRef = useRef<number>(0);
   const animatedPointerXRef = useRef<Record<string, number>>({});
+
+  const animatedScalesRef = useRef<Record<number, number>>({});
+  const animatedAlphasRef = useRef<Record<number, number>>({});
+  const animatedValuesRef = useRef<Record<number, number>>({});
+  const animatedPointerYRef = useRef<Record<string, number>>({});
+  const animatedRangeXRef = useRef<{ startX: number; endX: number } | null>(null);
+  const animatedMultiRangesRef = useRef<Record<string, { startX: number; endX: number }>>({});
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -250,8 +309,6 @@ export const SearchingCanvasSimulator: React.FC<SearchingCanvasSimulatorProps> =
       const lerpFactor = Math.min(0.5, Math.max(0.02, (120 / speedMs) * rateMult));
       const dashFactor = Math.min(3.0, Math.max(0.1, (500 / speedMs) * rateMult));
 
-
-
       // 2. Array Cards & Target Box Canvas Render
       const cardCount = step.array.length;
       const cardWidth = 56;
@@ -287,9 +344,89 @@ export const SearchingCanvasSimulator: React.FC<SearchingCanvasSimulatorProps> =
       ctx.textAlign = "center";
       ctx.fillText(String(targetVal), width / 2, targetBoxY + 36);
 
+      // --- MULTI SUB-ARRAY RANGE CALCULATION & HIGHLIGHT ZONES ---
+      const activeSubRanges: SubArrayRange[] = (step.subArrayRanges && step.subArrayRanges.length > 0)
+        ? step.subArrayRanges
+        : (step.subArrayRange && step.subArrayRange[0] <= step.subArrayRange[1]
+          ? [{ range: step.subArrayRange, label: "Sub-Array", color: "blue" }]
+          : []);
+
+      if (activeSubRanges.length > 0 && step.status !== "sorted" && step.status !== "not_found") {
+        activeSubRanges.forEach((sr, rIdx) => {
+          const rStart = Math.max(0, Math.min(cardCount - 1, sr.range[0]));
+          const rEnd = Math.max(0, Math.min(cardCount - 1, sr.range[1]));
+          if (rStart > rEnd) return;
+
+          const targetSX = startX + rStart * (cardWidth + gap) - 6;
+          const targetEX = startX + rEnd * (cardWidth + gap) + cardWidth + 6;
+          const rKey = `range_${rIdx}_${sr.label}`;
+
+          if (!animatedMultiRangesRef.current[rKey]) {
+            animatedMultiRangesRef.current[rKey] = { startX: targetSX, endX: targetEX };
+          } else {
+            animatedMultiRangesRef.current[rKey].startX += (targetSX - animatedMultiRangesRef.current[rKey].startX) * lerpFactor;
+            animatedMultiRangesRef.current[rKey].endX += (targetEX - animatedMultiRangesRef.current[rKey].endX) * lerpFactor;
+          }
+
+          const curSX = animatedMultiRangesRef.current[rKey].startX;
+          const curEX = animatedMultiRangesRef.current[rKey].endX;
+          const curW = Math.max(12, curEX - curSX);
+          const cols = getSubArrayColors(sr.color, isDarkMode);
+
+          ctx.save();
+          drawRoundRect(ctx, curSX, cardsY - 35, curW, cardHeight + 45, 12);
+          ctx.fillStyle = cols.fill;
+          ctx.fill();
+          ctx.strokeStyle = cols.stroke;
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([4, 4]);
+          ctx.stroke();
+
+          // Render Sub-Array Badge Label above the bounding box
+          const rangeText = rStart === rEnd ? `[${rStart}]` : `[${rStart}..${rEnd}]`;
+          const labelText = sr.label
+            .replace(" Sub-Array", "")
+            .replace(" Portion", "")
+            .replace(" Region", "")
+            .replace(" Part", "")
+            .replace(" Window", "")
+            .replace(" Span", "");
+
+          ctx.font = "10px monospace";
+          const tw1 = ctx.measureText(rangeText).width;
+          ctx.font = "bold 11px monospace";
+          const tw2 = ctx.measureText(labelText).width;
+
+          const badgeW = Math.max(tw1, tw2) + 16;
+          const badgeH = 28;
+          const badgeX = Math.max(curSX + 2, Math.min(curEX - badgeW - 2, curSX + (curW - badgeW) / 2));
+          const badgeY = cardsY - 53;
+
+          drawRoundRect(ctx, badgeX, badgeY, badgeW, badgeH, 6);
+          ctx.fillStyle = isDarkMode ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.92)";
+          ctx.fill();
+          ctx.strokeStyle = cols.stroke;
+          ctx.lineWidth = 1;
+          ctx.setLineDash([]);
+          ctx.stroke();
+
+          // Line 1: [range] (numbers in normal text)
+          ctx.fillStyle = isDarkMode ? "#9ca3af" : "#4b5563";
+          ctx.font = "10px monospace";
+          ctx.textAlign = "center";
+          ctx.fillText(rangeText, badgeX + badgeW / 2, badgeY + 12);
+
+          // Line 2: label (words in theme color)
+          ctx.fillStyle = cols.text;
+          ctx.font = "bold 11px monospace";
+          ctx.fillText(labelText, badgeX + badgeW / 2, badgeY + 23);
+          ctx.restore();
+        });
+      }
+
       // Calculate smooth lerped X positions for active clean pointers
       const pointerVars = Object.entries(step.vars).filter(
-        ([key, val]) => isCleanPointerName(key) && typeof val === "number" && val >= 0 && val < step.array.length
+        ([key, val]) => isCleanPointerName(key, algorithmId) && typeof val === "number" && val >= 0 && val < step.array.length
       );
 
       pointerVars.forEach(([key, val]) => {
@@ -312,6 +449,39 @@ export const SearchingCanvasSimulator: React.FC<SearchingCanvasSimulatorProps> =
 
         const isFoundCard = step.foundIndex === idx;
         const activePointersAtIdx = pointerVars.filter(([, v]) => v === idx);
+        const isOutOfRange = activeSubRanges.length > 0 && !activeSubRanges.some(sr => idx >= sr.range[0] && idx <= sr.range[1]);
+
+        // --- SMOOTH ANIMATION LERPING FOR CARDS ---
+        // 1. Smooth Value Lerping
+        if (animatedValuesRef.current[idx] === undefined) {
+          animatedValuesRef.current[idx] = val;
+        } else {
+          animatedValuesRef.current[idx] += (val - animatedValuesRef.current[idx]) * lerpFactor;
+        }
+        const displayVal = Math.round(animatedValuesRef.current[idx]);
+
+        // 2. Smooth Scale Lerping (tactile elevation pop for active cards)
+        let targetScale = 1.0;
+        if (isFoundCard) {
+          targetScale = 1.14;
+        } else if (activePointersAtIdx.length > 0 || step.activeIndices.includes(idx)) {
+          targetScale = 1.07;
+        }
+        if (animatedScalesRef.current[idx] === undefined) {
+          animatedScalesRef.current[idx] = targetScale;
+        } else {
+          animatedScalesRef.current[idx] += (targetScale - animatedScalesRef.current[idx]) * lerpFactor;
+        }
+        const curScale = animatedScalesRef.current[idx];
+
+        // 3. Smooth Opacity / Dimming Lerping
+        const targetAlpha = isOutOfRange && !isFoundCard && activePointersAtIdx.length === 0 ? 0.28 : 1.0;
+        if (animatedAlphasRef.current[idx] === undefined) {
+          animatedAlphasRef.current[idx] = targetAlpha;
+        } else {
+          animatedAlphasRef.current[idx] += (targetAlpha - animatedAlphasRef.current[idx]) * lerpFactor;
+        }
+        const curAlpha = animatedAlphasRef.current[idx];
 
         let bg = isDarkMode ? "#171717" : "#f5f5f5";
         let stroke = isDarkMode ? "#374151" : "#d1d5db";
@@ -329,7 +499,15 @@ export const SearchingCanvasSimulator: React.FC<SearchingCanvasSimulatorProps> =
           textCol = col.text;
         }
 
-        // Card Container Box (No Neon Shadow)
+        ctx.save();
+        ctx.globalAlpha = curAlpha;
+
+        // Apply smooth scale pop transform centered on card
+        ctx.translate(centerX, centerY);
+        ctx.scale(curScale, curScale);
+        ctx.translate(-centerX, -centerY);
+
+        // Card Container Box
         ctx.shadowBlur = 0;
         drawRoundRect(ctx, cx, cy, cardWidth, cardHeight, 10);
         ctx.fillStyle = bg;
@@ -342,13 +520,15 @@ export const SearchingCanvasSimulator: React.FC<SearchingCanvasSimulatorProps> =
         ctx.fillStyle = textCol;
         ctx.font = "bold 16px monospace";
         ctx.textAlign = "center";
-        ctx.fillText(String(val), centerX, centerY + 5);
+        ctx.fillText(String(displayVal), centerX, centerY + 5);
 
         // Index Label
         ctx.fillStyle = "#9ca3af";
         ctx.font = "11px monospace";
         ctx.textAlign = "center";
         ctx.fillText(`[${idx}]`, centerX, cy + cardHeight + 16);
+
+        ctx.restore();
       });
 
       // Render Smooth Floating Pointer Badges BELOW Array Cards (Vertically stacked if multiple pointers target same index)
@@ -371,7 +551,14 @@ export const SearchingCanvasSimulator: React.FC<SearchingCanvasSimulatorProps> =
         ctx.font = "bold 10px monospace";
         const labelText = key.toUpperCase();
         const bw = ctx.measureText(labelText).width + 12;
-        const badgeY = cardsY + cardHeight + 28 + stackIndex * 20;
+        const targetBadgeY = cardsY + cardHeight + 28 + stackIndex * 20;
+
+        if (animatedPointerYRef.current[key] === undefined) {
+          animatedPointerYRef.current[key] = targetBadgeY;
+        } else {
+          animatedPointerYRef.current[key] += (targetBadgeY - animatedPointerYRef.current[key]) * lerpFactor;
+        }
+        const badgeY = animatedPointerYRef.current[key];
 
         ctx.shadowBlur = 0;
         drawRoundRect(ctx, posX - bw / 2, badgeY, bw, 16, 8);

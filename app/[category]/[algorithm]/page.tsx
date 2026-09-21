@@ -2,7 +2,7 @@
 
 import React, { use, useState, useEffect } from "react";
 import Link from "next/link";
-import { Menu, X, ChevronRight, Code2, Play, Columns2, FileText } from "lucide-react";
+import { Menu, X, ChevronRight, Code2, Play, Columns2, FileText, Search } from "lucide-react";
 import { CodeArea } from "@/components/CodeArea";
 import {
   AlgorithmCategory,
@@ -28,10 +28,33 @@ export default function AlgorithmPage({
   const algorithmId = resolvedParams.algorithm || "LinearSearch";
 
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedLanguage, setSelectedLanguage] = useState<string>("c");
   const [theme, setTheme] = useState<string>("vs-dark");
   const [fontSize, setFontSize] = useState<number>(14);
   const [currentStep, setCurrentStep] = useState<Step | null>(null);
+
+  const filteredSearching = SEARCHING_ALGORITHMS.filter((algo) => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      algo.name.toLowerCase().includes(q) ||
+      algo.id.toLowerCase().includes(q) ||
+      (algo.description && algo.description.toLowerCase().includes(q))
+    );
+  });
+
+  const filteredSorting = SORTING_ALGORITHMS.filter((algo) => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      algo.name.toLowerCase().includes(q) ||
+      algo.id.toLowerCase().includes(q) ||
+      (algo.description && algo.description.toLowerCase().includes(q))
+    );
+  });
+
+  const hasNoResults = searchQuery.trim() !== "" && filteredSearching.length === 0 && filteredSorting.length === 0;
 
   // Active Workspace Panel View State: 'split' | 'code' | 'visualizer' | 'description'
   const [activeView, setActiveView] = useState<"split" | "code" | "visualizer" | "description">("split");
@@ -293,7 +316,7 @@ export default function AlgorithmPage({
         }`}>
           <div className="flex items-center gap-2">
             <Code2 className="w-5 h-5 text-neutral-400" />
-            <h2 className="font-semibold text-sm tracking-tight">Content Navigation</h2>
+            <h2 className="font-semibold text-sm tracking-tight">Algorithm</h2>
           </div>
           <button
             onClick={() => setIsSidebarOpen(false)}
@@ -305,71 +328,136 @@ export default function AlgorithmPage({
           </button>
         </div>
 
+        {/* Search Input Bar */}
+        <div className={`p-3 border-b ${isDarkMode ? "border-neutral-800/80 bg-neutral-900/40" : "border-neutral-200/80 bg-neutral-50/50"}`}>
+          <div className="relative flex items-center">
+            <Search className={`w-4 h-4 absolute left-3 pointer-events-none ${isDarkMode ? "text-neutral-400" : "text-neutral-500"}`} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search algorithms..."
+              className={`w-full pl-9 pr-8 py-2 rounded-lg text-xs font-medium outline-none transition border ${
+                isDarkMode
+                  ? "bg-neutral-900 border-neutral-800 text-white placeholder-neutral-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500/50"
+                  : "bg-white border-neutral-300 text-black placeholder-neutral-400 focus:border-sky-600 focus:ring-1 focus:ring-sky-600/30"
+              }`}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className={`absolute right-2.5 p-1 rounded-full hover:bg-neutral-800/50 transition cursor-pointer ${
+                  isDarkMode ? "text-neutral-400 hover:text-white" : "text-neutral-500 hover:text-black"
+                }`}
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Drawer Content Body */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
-          {/* SEARCHING SECTION */}
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2 px-2">
-              Searching Algorithms
-            </h3>
-            <ul className="space-y-1">
-              {SEARCHING_ALGORITHMS.map((algo) => {
-                const isActive = category === "Searching" && algorithmId === algo.id;
-                return (
-                  <li key={algo.id}>
-                    <Link
-                      href={`/Searching/${algo.id}`}
-                      onClick={() => setIsSidebarOpen(false)}
-                      className={`flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition ${
-                        isActive
-                          ? isDarkMode
-                            ? "bg-neutral-800 text-white font-semibold"
-                            : "bg-neutral-200 text-black font-semibold"
-                          : isDarkMode
-                          ? "text-neutral-400 hover:text-white hover:bg-neutral-900"
-                          : "text-neutral-600 hover:text-black hover:bg-neutral-100"
-                      }`}
-                    >
-                      <span>{algo.name}</span>
-                      {isActive && <ChevronRight className="w-3.5 h-3.5 text-sky-400" />}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
+          {hasNoResults ? (
+            <div className="text-center py-10 px-4">
+              <Search className="w-8 h-8 mx-auto text-neutral-500 mb-2 opacity-50" />
+              <p className="text-xs font-semibold text-neutral-400">No algorithms found</p>
+              <p className="text-[11px] text-neutral-500 mt-1">
+                No matches for &ldquo;{searchQuery}&rdquo;
+              </p>
+              <button
+                onClick={() => setSearchQuery("")}
+                className="mt-3 text-xs text-sky-400 hover:underline cursor-pointer font-medium"
+              >
+                Clear search filter
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* SEARCHING SECTION */}
+              {filteredSearching.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-2 px-2">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                      Searching Algorithms
+                    </h3>
+                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                      isDarkMode ? "bg-neutral-800 text-neutral-400" : "bg-neutral-200 text-neutral-600"
+                    }`}>
+                      {filteredSearching.length}
+                    </span>
+                  </div>
+                  <ul className="space-y-1">
+                    {filteredSearching.map((algo) => {
+                      const isActive = category === "Searching" && algorithmId === algo.id;
+                      return (
+                        <li key={algo.id}>
+                          <Link
+                            href={`/Searching/${algo.id}`}
+                            onClick={() => setIsSidebarOpen(false)}
+                            className={`flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition ${
+                              isActive
+                                ? isDarkMode
+                                  ? "bg-neutral-800 text-white font-semibold"
+                                  : "bg-neutral-200 text-black font-semibold"
+                                : isDarkMode
+                                ? "text-neutral-400 hover:text-white hover:bg-neutral-900"
+                                : "text-neutral-600 hover:text-black hover:bg-neutral-100"
+                            }`}
+                          >
+                            <span>{algo.name}</span>
+                            {isActive && <ChevronRight className="w-3.5 h-3.5 text-sky-400" />}
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
 
-          {/* SORTING SECTION */}
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2 px-2">
-              Sorting Algorithms
-            </h3>
-            <ul className="space-y-1">
-              {SORTING_ALGORITHMS.map((algo) => {
-                const isActive = category === "Sorting" && algorithmId === algo.id;
-                return (
-                  <li key={algo.id}>
-                    <Link
-                      href={`/Sorting/${algo.id}`}
-                      onClick={() => setIsSidebarOpen(false)}
-                      className={`flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition ${
-                        isActive
-                          ? isDarkMode
-                            ? "bg-neutral-800 text-white font-semibold"
-                            : "bg-neutral-200 text-black font-semibold"
-                          : isDarkMode
-                          ? "text-neutral-400 hover:text-white hover:bg-neutral-900"
-                          : "text-neutral-600 hover:text-black hover:bg-neutral-100"
-                      }`}
-                    >
-                      <span>{algo.name}</span>
-                      {isActive && <ChevronRight className="w-3.5 h-3.5 text-sky-400" />}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
+              {/* SORTING SECTION */}
+              {filteredSorting.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-2 px-2">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                      Sorting Algorithms
+                    </h3>
+                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                      isDarkMode ? "bg-neutral-800 text-neutral-400" : "bg-neutral-200 text-neutral-600"
+                    }`}>
+                      {filteredSorting.length}
+                    </span>
+                  </div>
+                  <ul className="space-y-1">
+                    {filteredSorting.map((algo) => {
+                      const isActive = category === "Sorting" && algorithmId === algo.id;
+                      return (
+                        <li key={algo.id}>
+                          <Link
+                            href={`/Sorting/${algo.id}`}
+                            onClick={() => setIsSidebarOpen(false)}
+                            className={`flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition ${
+                              isActive
+                                ? isDarkMode
+                                  ? "bg-neutral-800 text-white font-semibold"
+                                  : "bg-neutral-200 text-black font-semibold"
+                                : isDarkMode
+                                ? "text-neutral-400 hover:text-white hover:bg-neutral-900"
+                                : "text-neutral-600 hover:text-black hover:bg-neutral-100"
+                            }`}
+                          >
+                            <span>{algo.name}</span>
+                            {isActive && <ChevronRight className="w-3.5 h-3.5 text-sky-400" />}
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </aside>
     </main>

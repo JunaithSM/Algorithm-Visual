@@ -148,6 +148,127 @@ class SoundSynthesizer {
   }
 
   /**
+   * Plays a crisp pop/tone for pivot selection.
+   */
+  public playPivot(val: number = 5, maxVal: number = 20) {
+    if (this.muted || this.volume <= 0) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    try {
+      const freq = 440 + (val / Math.max(1, maxVal)) * 300;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = "square";
+      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+      const targetGain = 0.07 * this.volume;
+      gain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.08);
+    } catch {
+      // Ignore Web Audio errors
+    }
+  }
+
+  /**
+   * Plays a smooth rising harmonic tone for merging sub-arrays.
+   */
+  public playMerge(val: number = 5, maxVal: number = 20) {
+    if (this.muted || this.volume <= 0) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    try {
+      const freq = 320 + (val / Math.max(1, maxVal)) * 400;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+      osc.frequency.linearRampToValueAtTime(freq * 1.2, this.ctx.currentTime + 0.1);
+
+      const targetGain = 0.09 * this.volume;
+      gain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.1);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.1);
+    } catch {
+      // Ignore Web Audio errors
+    }
+  }
+
+  /**
+   * Plays a quick slide tone when an element is shifted.
+   */
+  public playShift(val: number = 5, maxVal: number = 20) {
+    if (this.muted || this.volume <= 0) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    try {
+      const freq = 300 + (val / Math.max(1, maxVal)) * 350;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.85, this.ctx.currentTime + 0.09);
+
+      const targetGain = 0.08 * this.volume;
+      gain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.09);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.09);
+    } catch {
+      // Ignore Web Audio errors
+    }
+  }
+
+  /**
+   * Plays a tick sound for counting / bucketing operations.
+   */
+  public playCount() {
+    if (this.muted || this.volume <= 0) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    try {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+
+      const targetGain = 0.05 * this.volume;
+      gain.gain.setValueAtTime(targetGain, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.05);
+    } catch {
+      // Ignore Web Audio errors
+    }
+  }
+
+  /**
    * Plays a random cute retro beep sound when mascot character is talking (Animal Crossing / Celeste style speech chatter).
    */
   public playMascotTalkBeep() {
